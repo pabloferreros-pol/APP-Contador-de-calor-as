@@ -1,0 +1,59 @@
+name: Generar APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+defaults:
+  run:
+    working-directory: apk-kit
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Instalar dependencias
+        run: npm install
+
+      - name: Verificar que la URL fue reemplazada
+        run: |
+          if grep -q "REEMPLAZAR-CON-TU-URL" capacitor.config.ts; then
+            echo "::error::Falta poner tu URL real en capacitor.config.ts"
+            exit 1
+          fi
+
+      - name: Crear proyecto Android
+        run: npx cap add android
+
+      - name: Aplicar iconos, splash y permisos
+        run: node scripts/apply-assets.mjs
+
+      - name: Sincronizar
+        run: npx cap sync android
+
+      - name: Compilar APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: contador-calorias-apk
+          path: apk-kit/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
